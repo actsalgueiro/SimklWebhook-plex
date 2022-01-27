@@ -38,7 +38,11 @@ def tvdbToAnidb(tvdbid, season, episode, absepisode):
     for anime in reversed(animelist):
         # Check if season has absolute episode
         if anime.attrib['defaulttvdbseason'] == 'a':
-            return int(anime.attrib['anidbid']), absepisode
+            if 'episodeoffset' in anime.attrib:
+                if absepisode > int(anime.attrib['episodeoffset']) :
+                    return int(anime.attrib['anidbid']), (absepisode - int(anime.attrib['episodeoffset']))
+            else:
+                return int(anime.attrib['anidbid']), absepisode
         
         # Search for corresponding season
         if anime.attrib['defaulttvdbseason'] == f'{season}':
@@ -97,3 +101,6 @@ def getAnimeList():
         local_file = 'anime-list.xml'
         # Download remote and save locally
         request.urlretrieve(remote_url, local_file)
+
+getAnimeList()
+print ( tvdbToAnidb (114801, 3, 16, 112) )
