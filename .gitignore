@@ -1,2 +1,5 @@
 webhooks/*
 anime-list.xml
+.vscode/*
+*.log
+__pycache__/*

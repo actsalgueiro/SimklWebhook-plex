@@ -1,10 +1,7 @@
-from github import Github
 import os
 import time
 import xml.etree.ElementTree as ET
-from urllib import request
-
-filePath = os.path.abspath("anime-list.xml")
+import requests
 
 def tvdbToAnidb(tvdbid, season, episode, absepisode):
     """Convert the Tvdb anime info into Anidb info
@@ -20,19 +17,40 @@ def tvdbToAnidb(tvdbid, season, episode, absepisode):
         episode: Anime episode in Anidb
     """
 
-    # create element tree object
-    tree = ET.parse(filePath)
+    #getAnimeList()
+
+    # create element tree object from ScudLee XML
+    filepath = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'anime-list.xml')
+    # get ScudLee XML from github
+    if not os.path.exists(filepath):
+        scudleeXML = requests.get("https://raw.githubusercontent.com/Anime-Lists/anime-lists/master/anime-list.xml")
+        with open(filepath, "wb") as f:
+            f.write(scudleeXML.content)
+    else: 
+        # update XML if its older than 24h
+        try: 
+            if time.time() - os.path.getmtime(filepath) > 60*60*24:
+                scudleeXML = requests.get("https://raw.githubusercontent.com/Anime-Lists/anime-lists/master/anime-list.xml")
+                with open(filepath, "wb") as f:
+                    f.write(scudleeXML.content)
+        except OSError:
+            scudleeXML = requests.get("https://raw.githubusercontent.com/Anime-Lists/anime-lists/master/anime-list.xml")
+            with open(filepath, "wb") as f:
+                f.write(scudleeXML.content)
+        
+
+    tree = ET.parse(filepath)
     root = tree.getroot()
 
     animelist = []
 
     # DO NOT HANDLE SPECIALS
+    # Future work
     if season == 0:
-        return
+        return 0,episode
 
     #search anime by TvdbID
     for anime in root.findall(f'./*[@tvdbid="{tvdbid}"]') :
-        #print(f"{anime.attrib}")
         animelist.append(anime)
 
     for anime in reversed(animelist):
@@ -56,7 +74,6 @@ def tvdbToAnidb(tvdbid, season, episode, absepisode):
         
         # If there is mapping information for the season
         for map in anime.findall(f'./mapping-list/mapping/[@tvdbseason="{season}"]') :
-            #print (map.attrib)
             # First check if there is individual episode mapping for the Episode
             if not map.text == None:
                 l = map.text.split(";")
@@ -68,39 +85,8 @@ def tvdbToAnidb(tvdbid, season, episode, absepisode):
             if 'start' in map.attrib:
                 if (int(map.attrib['start']) + int(map.attrib['offset'])) <= episode <= (int(map.attrib['end']) + int(map.attrib['offset'])):
                     return int(anime.attrib['anidbid']), (episode - int(map.attrib['offset']))
+    return 0,episode
 
-def getAnimeList():
-    """Download anime-list.xml file from the GitHub rep if there were any changes
-    """
 
-    if not os.path.exists(filePath) :
-        remote_url = 'https://raw.githubusercontent.com/Anime-Lists/anime-lists/master/anime-list.xml'
-        # Define the local filename to save data
-        local_file = 'anime-list.xml'
-        # Download remote and save locally
-        request.urlretrieve(remote_url, local_file)
-        return
-
-    g = Github()
-    repo = g.get_repo("Anime-Lists/anime-lists")
-    commits = repo.get_commits(path='anime-list.xml')
-    # Get last commit date of the file
-    if commits.totalCount:
-        gitDate = time.strptime(str(commits[0].commit.committer.date).split(None, 1)[0], "%Y-%m-%d")
-        #print("Last Commit Time: ", gitDate)
-    
-    # Get directory file date
-    modificationTime = time.strptime(time.strftime('%Y-%m-%d', time.localtime(os.path.getmtime(filePath))), "%Y-%m-%d")
-    #print("Last Modified Time : ", modificationTime )
-
-    if gitDate > modificationTime:
-        #print("New version found")
-        # Define the remote file to retrieve
-        remote_url = 'https://raw.githubusercontent.com/Anime-Lists/anime-lists/master/anime-list.xml'
-        # Define the local filename to save data
-        local_file = 'anime-list.xml'
-        # Download remote and save locally
-        request.urlretrieve(remote_url, local_file)
-
-getAnimeList()
-print ( tvdbToAnidb (114801, 3, 16, 112) )
+#getAnimeList()
+# print ( tvdbToAnidb (114801, 3, 16, 112) )
