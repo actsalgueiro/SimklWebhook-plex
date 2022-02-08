@@ -3,24 +3,10 @@ import time
 import xml.etree.ElementTree as ET
 import requests
 
-def tvdbToAnidb(tvdbid, season, episode, absepisode):
-    """Convert the Tvdb anime info into Anidb info
+filepath = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'anime-list.xml')
 
-    Args:
-        tvdbid (int): TvdbID of the anime
-        season (int): Tvdb season
-        episode (int): Tvdb episode
-        absepisode (int): Tvdb absolute episode
-
-    Returns:
-        anidbid: Corresponding AnidbID of the anime
-        episode: Anime episode in Anidb
-    """
-
-    #getAnimeList()
-
+def getScudLee():
     # create element tree object from ScudLee XML
-    filepath = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'anime-list.xml')
     # get ScudLee XML from github
     if not os.path.exists(filepath):
         scudleeXML = requests.get("https://raw.githubusercontent.com/Anime-Lists/anime-lists/master/anime-list.xml")
@@ -37,8 +23,72 @@ def tvdbToAnidb(tvdbid, season, episode, absepisode):
             scudleeXML = requests.get("https://raw.githubusercontent.com/Anime-Lists/anime-lists/master/anime-list.xml")
             with open(filepath, "wb") as f:
                 f.write(scudleeXML.content)
-        
 
+def anidbToTvdb(anidbid, episode):
+    """Convert the Tvdb anime info into Anidb info
+
+    Args:
+        anidbid (int): TvdbID of the anime
+        episode (int): Tvdb episode
+
+    Returns:
+        tvdbidb: Corresponding TvdbID of the anime
+        season: Anime seasons in Tvdb
+        episode: Anime episode in Tvdb
+    """
+    
+    getScudLee()
+    tree = ET.parse(filepath)
+    root = tree.getroot()
+
+    for anime in root.findall(f'./*[@anidbid="{anidbid}"]'):
+        if anime.attrib['defaulttvdbseason'] == 'a':
+            # CANNOT HANDLE ABSOLUTE EPISODES MATCHING
+            for map in anime.findall(f'./mapping-list/mapping/[@anidbseason="1"]'):
+                if not map.text == None:
+                    l = map.text.split(";")
+                    for eps in l[1:-1] :
+                        eps = eps.split("-")
+                        if int(eps[0]) == episode:
+                            return int(anime.attrib['tvdbid']), int(map.attrib['tvdbseason']), int(eps[1])
+                if 'start' in map.attrib:
+                    if int(map.attrib['start']) <= episode <= int(map.attrib['end']) :
+                        return int(anime.attrib['tvdbid']), int(map.attrib['tvdbseason']), (episode + int(map.attrib['offset']))            
+        elif int(anime.attrib['defaulttvdbseason']) > 0:
+            # IGNORE SPECIALS
+            for map in anime.findall(f'./mapping-list/mapping/[@anidbseason="1"]'):
+                if not map.text == None:
+                    l = map.text.split(";")
+                    for eps in l[1:-1] :
+                        eps = eps.split("-")
+                        if int(eps[0]) == episode:
+                            return int(anime.attrib['tvdbid']), int(map.attrib['tvdbseason']), int(eps[1])
+                if 'start' in map.attrib:
+                    if int(map.attrib['start']) <= episode <= int(map.attrib['end']) :
+                        return int(anime.attrib['tvdbid']), int(map.attrib['tvdbseason']), (episode + int(map.attrib['offset']))
+            if 'episodeoffset' in anime.attrib:
+                return int(anime.attrib['tvdbid']), int(anime.attrib['defaulttvdbseason']), episode + int(anime.attrib['episodeoffset'])
+            else:
+                return int(anime.attrib['tvdbid']), int(anime.attrib['defaulttvdbseason']), episode
+
+
+def tvdbToAnidb(tvdbid, season, episode, absepisode):
+    """Convert the Tvdb anime info into Anidb info
+
+    Args:
+        tvdbid (int): TvdbID of the anime
+        season (int): Tvdb season
+        episode (int): Tvdb episode
+        absepisode (int): Tvdb absolute episode
+
+    Returns:
+        anidbid: Corresponding AnidbID of the anime
+        episode: Anime episode in Anidb
+    """
+
+    #getAnimeList()
+        
+    getScudLee()
     tree = ET.parse(filepath)
     root = tree.getroot()
 
@@ -88,5 +138,11 @@ def tvdbToAnidb(tvdbid, season, episode, absepisode):
     return 0,episode
 
 
-#getAnimeList()
+
+# anidbToTvdb(anidbid, episode)
+print (anidbToTvdb(10760,10))
+
+# tvdbToAnidb(tvdbid, season, episode, absepisode)
+print (tvdbToAnidb(321209, 1, 9, 9))
+# getAnimeList()
 # print ( tvdbToAnidb (114801, 3, 16, 112) )
